@@ -1,1 +1,812 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dino Runner - Mapas & Noite</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    user-select: none;
+  }
+  #game-container {
+    position: relative;
+    width: 800px;
+    height: 300px;
+    border: 2px solid #535353;
+    overflow: hidden;
+  }
+  canvas { display: block; }
+  #ui {
+    position: absolute;
+    top: 12px;
+    right: 18px;
+    font-size: 15px;
+    color: #535353;
+    letter-spacing: 1px;
+    z-index: 10;
+    text-align: right;
+  }
+  #coins-ui {
+    position: absolute;
+    top: 12px;
+    left: 18px;
+    font-size: 15px;
+    color: #535353;
+    z-index: 10;
+  }
+  #map-ui {
+    position: absolute;
+    top: 36px;
+    left: 18px;
+    font-size: 12px;
+    color: #535353;
+    z-index: 10;
+  }
+  #shop-btn {
+    position: absolute;
+    top: 12px;
+    left: 130px;
+    background: #535353;
+    color: #f7f7f7;
+    border: none;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    z-index: 10;
+  }
+  #shop-btn:hover { background: #333; }
 
+  #shop {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #f7f7f7;
+    z-index: 50;
+    display: none;
+    flex-direction: column;
+    padding: 12px 18px;
+    overflow-y: auto;
+  }
+  #shop h2 { text-align: center; color: #535353; margin-bottom: 6px; letter-spacing: 3px; }
+  #shop-coins { text-align: center; margin-bottom: 10px; color: #535353; font-size: 14px; }
+  .shop-section { margin-bottom: 12px; }
+  .shop-section h3 {
+    color: #535353; font-size: 13px; margin-bottom: 6px;
+    border-bottom: 1px solid #ccc; padding-bottom: 2px;
+  }
+  .items-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+  .item {
+    width: 100px;
+    background: #eee;
+    border: 2px solid #535353;
+    padding: 6px 4px;
+    text-align: center;
+    cursor: pointer;
+  }
+  .item:hover { background: #ddd; }
+  .item.selected { background: #535353; color: #f7f7f7; }
+  .item.locked { opacity: 0.5; }
+  .item-name { font-size: 11px; margin-bottom: 3px; }
+  .item-price { font-size: 10px; }
+  .item-preview { height: 30px; display: flex; align-items: center; justify-content: center; }
+  #close-shop {
+    margin-top: 8px;
+    background: #535353; color: #f7f7f7; border: none;
+    padding: 7px 18px; font-size: 13px; cursor: pointer;
+    font-family: 'Courier New', monospace; align-self: center;
+  }
+
+  #game-over {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center; display: none; z-index: 20;
+  }
+  #game-over h1 {
+    font-size: 22px; color: #535353;
+    letter-spacing: 4px; margin-bottom: 12px;
+  }
+  #restart-btn, #start-btn {
+    background: #535353; color: #f7f7f7; border: none;
+    padding: 8px 18px; font-size: 13px; cursor: pointer;
+    font-family: 'Courier New', monospace;
+  }
+  #start-screen {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #f7f7f7;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center; z-index: 30;
+  }
+  #start-screen h1 {
+    font-size: 26px; color: #535353;
+    margin-bottom: 8px; letter-spacing: 3px;
+  }
+  #start-screen p { color: #535353; font-size: 13px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="game" width="800" height="300"></canvas>
+
+  <div id="coins-ui">🪙 <span id="coins">0</span></div>
+  <div id="map-ui">MAPA: <span id="map-name">Deserto</span></div>
+  <button id="shop-btn">LOJA</button>
+
+  <div id="ui">
+    <div>HI <span id="hi-score">00000</span></div>
+    <div id="score">00000</div>
+  </div>
+
+  <div id="game-over">
+    <h1>G A M E  O V E R</h1>
+    <button id="restart-btn">REINICIAR</button>
+  </div>
+
+  <div id="start-screen">
+    <h1>DINO RUNNER</h1>
+    <p>Espaço / ↑ pular • ↓ agachar</p>
+    <button id="start-btn">COMEÇAR</button>
+  </div>
+
+  <div id="shop">
+    <h2>LOJINHA</h2>
+    <div id="shop-coins">Suas moedas: 🪙 <span id="shop-coins-value">0</span></div>
+    <div class="shop-section">
+      <h3>PERSONAGENS</h3>
+      <div class="items-grid" id="characters-grid"></div>
+    </div>
+    <div class="shop-section">
+      <h3>ACESSÓRIOS</h3>
+      <div class="items-grid" id="accessories-grid"></div>
+    </div>
+    <button id="close-shop">FECHAR LOJA</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+const scoreEl = document.getElementById('score');
+const hiScoreEl = document.getElementById('hi-score');
+const coinsEl = document.getElementById('coins');
+const shopCoinsEl = document.getElementById('shop-coins-value');
+const mapNameEl = document.getElementById('map-name');
+const gameOverEl = document.getElementById('game-over');
+const startScreen = document.getElementById('start-screen');
+const startBtn = document.getElementById('start-btn');
+const restartBtn = document.getElementById('restart-btn');
+const shopBtn = document.getElementById('shop-btn');
+const shopEl = document.getElementById('shop');
+const closeShopBtn = document.getElementById('close-shop');
+const charactersGrid = document.getElementById('characters-grid');
+const accessoriesGrid = document.getElementById('accessories-grid');
+
+const GROUND_Y = 250;
+const GRAVITY = 0.65;
+const JUMP_FORCE = -12.5;
+const GAME_SPEED_START = 6;
+const GAME_SPEED_INCREMENT = 0.00115;
+
+let gameSpeed = GAME_SPEED_START;
+let score = 0;
+let highScore = 0;
+let coins = 0;
+let isPlaying = false;
+let isGameOver = false;
+let frameCount = 0;
+
+// ===== MAPAS =====
+const maps = [
+  {
+    id: 'desert_day',
+    name: 'Deserto',
+    minScore: 0,
+    bg: '#f7f7f7',
+    ground: '#535353',
+    cloud: '#dadada',
+    obstacle: '#535353',
+    isNight: false
+  },
+  {
+    id: 'desert_night',
+    name: 'Deserto Noturno',
+    minScore: 300,
+    bg: '#1a1a2e',
+    ground: '#e0e0e0',
+    cloud: '#4a4a6a',
+    obstacle: '#c0c0c0',
+    isNight: true
+  },
+  {
+    id: 'forest',
+    name: 'Floresta',
+    minScore: 700,
+    bg: '#d4edda',
+    ground: '#2d6a4f',
+    cloud: '#95d5b2',
+    obstacle: '#1b4332',
+    isNight: false
+  },
+  {
+    id: 'forest_night',
+    name: 'Floresta Noturna',
+    minScore: 1200,
+    bg: '#0b1a12',
+    ground: '#95d5b2',
+    cloud: '#1b4332',
+    obstacle: '#d8f3dc',
+    isNight: true
+  },
+  {
+    id: 'snow',
+    name: 'Neve',
+    minScore: 1800,
+    bg: '#e8f4f8',
+    ground: '#5c7c8a',
+    cloud: '#b8d4e3',
+    obstacle: '#3d5a6c',
+    isNight: false
+  },
+  {
+    id: 'snow_night',
+    name: 'Noite Congelante',
+    minScore: 2500,
+    bg: '#0d1b2a',
+    ground: '#a0c4d8',
+    cloud: '#1b3a4b',
+    obstacle: '#e0f0ff',
+    isNight: true
+  },
+  {
+    id: 'volcano',
+    name: 'Vulcão',
+    minScore: 3500,
+    bg: '#2b1a1a',
+    ground: '#ff6b35',
+    cloud: '#5c2a2a',
+    obstacle: '#ff9f1c',
+    isNight: true
+  },
+  {
+    id: 'space',
+    name: 'Espaço',
+    minScore: 5000,
+    bg: '#0a0a1a',
+    ground: '#7b2cbf',
+    cloud: '#3c096c',
+    obstacle: '#e0aaff',
+    isNight: true
+  }
+];
+
+let currentMap = maps[0];
+
+// ===== LOJA =====
+const characters = [
+  { id: 'classic', name: 'Clássico', price: 0, color: '#535353' },
+  { id: 'blue', name: 'Azul', price: 50, color: '#3a7ca5' },
+  { id: 'green', name: 'Verde', price: 80, color: '#3d8b5f' },
+  { id: 'purple', name: 'Roxo', price: 120, color: '#7b5ea7' },
+  { id: 'orange', name: 'Laranja', price: 150, color: '#d17a22' },
+  { id: 'pink', name: 'Rosa', price: 200, color: '#c75b8a' }
+];
+
+const accessories = [
+  { id: 'none', name: 'Nenhum', price: 0 },
+  { id: 'hat', name: 'Chapéu', price: 60 },
+  { id: 'glasses', name: 'Óculos', price: 90 },
+  { id: 'scarf', name: 'Cachecol', price: 110 },
+  { id: 'crown', name: 'Coroa', price: 250 }
+];
+
+let ownedCharacters = ['classic'];
+let ownedAccessories = ['none'];
+let selectedCharacter = 'classic';
+let selectedAccessory = 'none';
+
+function loadProgress() {
+  try {
+    const data = localStorage.getItem('dinoShopData');
+    if (data) {
+      const p = JSON.parse(data);
+      coins = p.coins || 0;
+      highScore = p.highScore || 0;
+      ownedCharacters = p.ownedCharacters || ['classic'];
+      ownedAccessories = p.ownedAccessories || ['none'];
+      selectedCharacter = p.selectedCharacter || 'classic';
+      selectedAccessory = p.selectedAccessory || 'none';
+    }
+  } catch (e) {}
+  updateCoinsUI();
+  hiScoreEl.textContent = String(highScore).padStart(5, '0');
+}
+
+function saveProgress() {
+  try {
+    localStorage.setItem('dinoShopData', JSON.stringify({
+      coins, highScore, ownedCharacters, ownedAccessories,
+      selectedCharacter, selectedAccessory
+    }));
+  } catch (e) {}
+}
+
+function updateCoinsUI() {
+  coinsEl.textContent = coins;
+  shopCoinsEl.textContent = coins;
+}
+
+loadProgress();
+
+const dino = {
+  x: 70, y: GROUND_Y - 47, width: 44, height: 47,
+  dy: 0, isJumping: false, isDucking: false, animTimer: 0
+};
+
+let obstacles = [];
+let clouds = [];
+let stars = [];
+let nextObstacleTime = 0;
+
+/* ========== DESENHO ========== */
+
+function getDinoColor() {
+  const c = characters.find(c => c.id === selectedCharacter);
+  return c ? c.color : '#535353';
+}
+
+function drawDino() {
+  const x = Math.floor(dino.x);
+  const y = Math.floor(dino.y);
+  const color = getDinoColor();
+  ctx.fillStyle = color;
+
+  if (dino.isDucking) {
+    ctx.fillRect(x + 4, y + 22, 38, 18);
+    ctx.fillRect(x + 32, y + 14, 16, 14);
+    ctx.fillStyle = currentMap.isNight ? '#222' : '#f7f7f7';
+    ctx.fillRect(x + 40, y + 17, 4, 4);
+    ctx.fillStyle = color;
+    ctx.fillRect(x + 42, y + 24, 6, 2);
+    ctx.fillRect(x + 10, y + 38, 8, 6);
+    ctx.fillRect(x + 26, y + 38, 8, 6);
+  } else {
+    ctx.fillRect(x + 22, y + 0, 22, 16);
+    ctx.fillRect(x + 22, y + 16, 16, 6);
+    ctx.fillStyle = currentMap.isNight ? '#222' : '#f7f7f7';
+    ctx.fillRect(x + 34, y + 4, 5, 5);
+    ctx.fillStyle = color;
+    ctx.fillRect(x + 38, y + 14, 6, 2);
+    ctx.fillRect(x + 14, y + 18, 20, 18);
+    ctx.fillRect(x + 8, y + 20, 8, 6);
+    ctx.fillRect(x + 0, y + 22, 14, 6);
+    ctx.fillRect(x + 0, y + 18, 6, 6);
+
+    if (dino.isJumping) {
+      ctx.fillRect(x + 16, y + 36, 8, 11);
+      ctx.fillRect(x + 26, y + 36, 8, 11);
+    } else {
+      const f = Math.floor(dino.animTimer / 5) % 2;
+      if (f === 0) {
+        ctx.fillRect(x + 14, y + 36, 9, 11);
+        ctx.fillRect(x + 26, y + 38, 9, 9);
+      } else {
+        ctx.fillRect(x + 14, y + 38, 9, 9);
+        ctx.fillRect(x + 26, y + 36, 9, 11);
+      }
+    }
+  }
+  drawAccessory(x, y);
+}
+
+function drawAccessory(x, y) {
+  if (selectedAccessory === 'none' || dino.isDucking) return;
+
+  if (selectedAccessory === 'hat') {
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(x + 24, y - 6, 20, 6);
+    ctx.fillRect(x + 28, y - 12, 12, 6);
+  } else if (selectedAccessory === 'glasses') {
+    ctx.strokeStyle = currentMap.isNight ? '#eee' : '#222';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 30, y + 3, 8, 6);
+    ctx.strokeRect(x + 39, y + 3, 6, 6);
+  } else if (selectedAccessory === 'scarf') {
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(x + 18, y + 16, 16, 5);
+    ctx.fillRect(x + 14, y + 20, 6, 12);
+  } else if (selectedAccessory === 'crown') {
+    ctx.fillStyle = '#f1c40f';
+    ctx.fillRect(x + 26, y - 4, 16, 5);
+    ctx.fillRect(x + 26, y - 9, 4, 5);
+    ctx.fillRect(x + 32, y - 11, 4, 7);
+    ctx.fillRect(x + 38, y - 9, 4, 5);
+  }
+}
+
+function drawCactus(obs) {
+  const x = Math.floor(obs.x);
+  const y = Math.floor(obs.y);
+  ctx.fillStyle = currentMap.obstacle;
+
+  if (obs.type === 'small') {
+    ctx.fillRect(x + 6, y, 10, 36);
+    ctx.fillRect(x + 0, y + 10, 8, 6);
+    ctx.fillRect(x + 0, y + 10, 4, 14);
+    ctx.fillRect(x + 14, y + 16, 8, 6);
+    ctx.fillRect(x + 18, y + 16, 4, 12);
+  } else if (obs.type === 'large') {
+    ctx.fillRect(x + 10, y, 14, 50);
+    ctx.fillRect(x + 0, y + 12, 12, 7);
+    ctx.fillRect(x + 0, y + 12, 5, 18);
+    ctx.fillRect(x + 22, y + 20, 12, 7);
+    ctx.fillRect(x + 29, y + 20, 5, 16);
+  } else {
+    ctx.fillRect(x + 2, y + 12, 9, 28);
+    ctx.fillRect(x + 0, y + 18, 5, 8);
+    ctx.fillRect(x + 16, y, 12, 40);
+    ctx.fillRect(x + 12, y + 10, 6, 8);
+    ctx.fillRect(x + 26, y + 16, 6, 8);
+    ctx.fillRect(x + 34, y + 8, 10, 32);
+    ctx.fillRect(x + 42, y + 14, 5, 10);
+  }
+}
+
+function drawCloud(cloud) {
+  const x = Math.floor(cloud.x);
+  const y = Math.floor(cloud.y);
+  ctx.fillStyle = currentMap.cloud;
+  ctx.beginPath();
+  ctx.arc(x + 10, y, 11, 0, Math.PI * 2);
+  ctx.arc(x + 24, y - 6, 14, 0, Math.PI * 2);
+  ctx.arc(x + 40, y, 12, 0, Math.PI * 2);
+  ctx.arc(x + 28, y + 4, 10, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawStars() {
+  if (!currentMap.isNight) return;
+  ctx.fillStyle = '#ffffff';
+  stars.forEach(s => {
+    ctx.globalAlpha = 0.4 + Math.sin(frameCount * 0.05 + s.phase) * 0.4;
+    ctx.fillRect(s.x, s.y, s.size, s.size);
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawMoon() {
+  if (!currentMap.isNight) return;
+  ctx.fillStyle = '#f5f5dc';
+  ctx.beginPath();
+  ctx.arc(700, 50, 22, 0, Math.PI * 2);
+  ctx.fill();
+  // cratera sutil
+  ctx.fillStyle = currentMap.bg;
+  ctx.beginPath();
+  ctx.arc(710, 45, 16, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawGround() {
+  ctx.strokeStyle = currentMap.ground;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, GROUND_Y);
+  ctx.lineTo(canvas.width, GROUND_Y);
+  ctx.stroke();
+
+  ctx.fillStyle = currentMap.ground;
+  const offset = (frameCount * gameSpeed * 0.4) % 24;
+  for (let i = -24; i < canvas.width + 24; i += 24) {
+    const px = i - offset;
+    ctx.fillRect(px + 4, GROUND_Y + 4, 3, 2);
+    ctx.fillRect(px + 14, GROUND_Y + 7, 2, 2);
+  }
+}
+
+function drawBackground() {
+  // fundo
+  ctx.fillStyle = currentMap.bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawStars();
+  drawMoon();
+}
+
+/* ========== LÓGICA ========== */
+
+function updateMap() {
+  let newMap = maps[0];
+  for (let i = maps.length - 1; i >= 0; i--) {
+    if (score >= maps[i].minScore) {
+      newMap = maps[i];
+      break;
+    }
+  }
+  if (newMap.id !== currentMap.id) {
+    currentMap = newMap;
+    mapNameEl.textContent = currentMap.name;
+    // muda cor do texto da UI
+    const uiColor = currentMap.isNight ? '#e0e0e0' : '#535353';
+    document.getElementById('ui').style.color = uiColor;
+    document.getElementById('coins-ui').style.color = uiColor;
+    document.getElementById('map-ui').style.color = uiColor;
+  }
+}
+
+function jump() {
+  if (!dino.isJumping && isPlaying && !isGameOver) {
+    dino.dy = JUMP_FORCE;
+    dino.isJumping = true;
+    dino.isDucking = false;
+  }
+}
+
+function duck(active) {
+  if (!dino.isJumping && isPlaying && !isGameOver) {
+    dino.isDucking = active;
+  }
+}
+
+function spawnObstacle() {
+  const types = ['small', 'large', 'group'];
+  const type = types[Math.floor(Math.random() * types.length)];
+  let height, width;
+  if (type === 'small') { height = 36; width = 26; }
+  else if (type === 'large') { height = 50; width = 38; }
+  else { height = 40; width = 52; }
+
+  obstacles.push({
+    x: canvas.width + 10,
+    y: GROUND_Y - height,
+    width, height, type
+  });
+}
+
+function spawnCloud() {
+  clouds.push({
+    x: canvas.width + 20,
+    y: 35 + Math.random() * 70,
+    speed: 0.8 + Math.random() * 1.2
+  });
+}
+
+function initStars() {
+  stars = [];
+  for (let i = 0; i < 40; i++) {
+    stars.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * 160,
+      size: Math.random() > 0.7 ? 2 : 1,
+      phase: Math.random() * Math.PI * 2
+    });
+  }
+}
+initStars();
+
+function update() {
+  if (!isPlaying || isGameOver) return;
+
+  frameCount++;
+  dino.animTimer++;
+
+  dino.dy += GRAVITY;
+  dino.y += dino.dy;
+
+  const groundPos = GROUND_Y - (dino.isDucking ? 40 : 47);
+  if (dino.y >= groundPos) {
+    dino.y = groundPos;
+    dino.dy = 0;
+    dino.isJumping = false;
+  }
+
+  gameSpeed += GAME_SPEED_INCREMENT;
+  score += 0.15;
+  scoreEl.textContent = String(Math.floor(score)).padStart(5, '0');
+
+  updateMap();
+
+  if (frameCount > nextObstacleTime) {
+    spawnObstacle();
+    nextObstacleTime = frameCount + 55 + Math.floor(Math.random() * 70);
+  }
+
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const obs = obstacles[i];
+    obs.x -= gameSpeed;
+
+    const hit = {
+      x: dino.x + 8, y: dino.y + 6,
+      w: dino.width - 14,
+      h: dino.isDucking ? 28 : dino.height - 12
+    };
+
+    if (
+      hit.x < obs.x + obs.width - 6 &&
+      hit.x + hit.w > obs.x + 4 &&
+      hit.y < obs.y + obs.height &&
+      hit.y + hit.h > obs.y + 4
+    ) {
+      gameOver();
+    }
+    if (obs.x + obs.width < 0) obstacles.splice(i, 1);
+  }
+
+  if (frameCount % 100 === 0) spawnCloud();
+  for (let i = clouds.length - 1; i >= 0; i--) {
+    clouds[i].x -= clouds[i].speed;
+    if (clouds[i].x < -60) clouds.splice(i, 1);
+  }
+}
+
+function draw() {
+  drawBackground();
+  clouds.forEach(drawCloud);
+  drawGround();
+  obstacles.forEach(drawCactus);
+  drawDino();
+}
+
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+function gameOver() {
+  isGameOver = true;
+  isPlaying = false;
+  gameOverEl.style.display = 'block';
+
+  const earned = Math.floor(score / 20);
+  coins += earned;
+  updateCoinsUI();
+
+  if (Math.floor(score) > highScore) {
+    highScore = Math.floor(score);
+    hiScoreEl.textContent = String(highScore).padStart(5, '0');
+  }
+  saveProgress();
+}
+
+function resetGame() {
+  score = 0;
+  gameSpeed = GAME_SPEED_START;
+  obstacles = [];
+  clouds = [];
+  dino.y = GROUND_Y - 47;
+  dino.dy = 0;
+  dino.isJumping = false;
+  dino.isDucking = false;
+  frameCount = 0;
+  nextObstacleTime = 70;
+  isGameOver = false;
+  isPlaying = true;
+  gameOverEl.style.display = 'none';
+  scoreEl.textContent = '00000';
+  currentMap = maps[0];
+  mapNameEl.textContent = currentMap.name;
+  document.getElementById('ui').style.color = '#535353';
+  document.getElementById('coins-ui').style.color = '#535353';
+  document.getElementById('map-ui').style.color = '#535353';
+}
+
+/* ========== LOJA ========== */
+
+function renderShop() {
+  charactersGrid.innerHTML = '';
+  accessoriesGrid.innerHTML = '';
+
+  characters.forEach(char => {
+    const owned = ownedCharacters.includes(char.id);
+    const selected = selectedCharacter === char.id;
+    const div = document.createElement('div');
+    div.className = 'item' + (selected ? ' selected' : '') + (!owned ? ' locked' : '');
+    div.innerHTML = `
+      <div class="item-preview" style="color:${char.color}">●</div>
+      <div class="item-name">${char.name}</div>
+      <div class="item-price">${owned ? (selected ? 'EQUIPADO' : 'POSSUI') : '🪙 ' + char.price}</div>
+    `;
+    div.onclick = () => {
+      if (owned) {
+        selectedCharacter = char.id;
+        saveProgress();
+        renderShop();
+      } else if (coins >= char.price) {
+        coins -= char.price;
+        ownedCharacters.push(char.id);
+        selectedCharacter = char.id;
+        updateCoinsUI();
+        saveProgress();
+        renderShop();
+      } else alert('Moedas insuficientes!');
+    };
+    charactersGrid.appendChild(div);
+  });
+
+  accessories.forEach(acc => {
+    const owned = ownedAccessories.includes(acc.id);
+    const selected = selectedAccessory === acc.id;
+    const div = document.createElement('div');
+    div.className = 'item' + (selected ? ' selected' : '') + (!owned ? ' locked' : '');
+    div.innerHTML = `
+      <div class="item-preview">${acc.id === 'none' ? '—' : '★'}</div>
+      <div class="item-name">${acc.name}</div>
+      <div class="item-price">${owned ? (selected ? 'EQUIPADO' : 'POSSUI') : '🪙 ' + acc.price}</div>
+    `;
+    div.onclick = () => {
+      if (owned) {
+        selectedAccessory = acc.id;
+        saveProgress();
+        renderShop();
+      } else if (coins >= acc.price) {
+        coins -= acc.price;
+        ownedAccessories.push(acc.id);
+        selectedAccessory = acc.id;
+        updateCoinsUI();
+        saveProgress();
+        renderShop();
+      } else alert('Moedas insuficientes!');
+    };
+    accessoriesGrid.appendChild(div);
+  });
+}
+
+shopBtn.addEventListener('click', () => {
+  if (isPlaying) return;
+  renderShop();
+  shopEl.style.display = 'flex';
+});
+closeShopBtn.addEventListener('click', () => shopEl.style.display = 'none');
+
+/* ========== CONTROLES ========== */
+
+document.addEventListener('keydown', e => {
+  if (shopEl.style.display === 'flex') return;
+  if (e.code === 'Space' || e.code === 'ArrowUp') {
+    e.preventDefault();
+    if (!isPlaying && !isGameOver) {
+      startScreen.style.display = 'none';
+      resetGame();
+    } else if (isGameOver) resetGame();
+    else jump();
+  }
+  if (e.code === 'ArrowDown') {
+    e.preventDefault();
+    duck(true);
+  }
+});
+
+document.addEventListener('keyup', e => {
+  if (e.code === 'ArrowDown') duck(false);
+});
+
+canvas.addEventListener('click', () => {
+  if (shopEl.style.display === 'flex') return;
+  if (!isPlaying && !isGameOver) {
+    startScreen.style.display = 'none';
+    resetGame();
+  } else if (isGameOver) resetGame();
+  else jump();
+});
+
+startBtn.addEventListener('click', () => {
+  startScreen.style.display = 'none';
+  resetGame();
+});
+restartBtn.addEventListener('click', resetGame);
+
+gameLoop();
+</script>
+</body>
+</html>
